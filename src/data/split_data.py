@@ -60,7 +60,7 @@ def split_and_save_data(raw_data_path: str, interim_data_path: str):
 if __name__ == "__main__":
     # Asegúrate de que la ruta coincida con donde se extrajo tu CSV en el paso anterior.
     # Si el script anterior lo dejó suelto en raw, usamos "data/raw/housing.csv"
-    RAW_PATH = r"C:\Users\estef\OneDrive\Escritorio\Productivo\Clases\Maestria\Maestria-CienciaDeDatos\ds-ml-project-template\data\raw\housing.csv"
-    INTERIM_PATH = r"C:\Users\estef\OneDrive\Escritorio\Productivo\Clases\Maestria\Maestria-CienciaDeDatos\ds-ml-project-template\data\interim"
+    RAW_PATH = r"C:\Users\Tefo\Desktop\Productivo\Clases\ds-ml-project-template\data\raw\housing\housing.csv"
+    INTERIM_PATH = r"C:\Users\Tefo\Desktop\Productivo\Clases\ds-ml-project-template\data\interim"
     
     split_and_save_data(RAW_PATH, INTERIM_PATH)

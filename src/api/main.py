@@ -10,7 +10,6 @@ import pandas as pd
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 
-# --- Definición de la clase personalizada (IDÉNTICA AL NOTEBOOK) ---
 rooms_ix, bedrooms_ix, population_ix, households_ix = 3, 4, 5, 6
 
 class CreadorAtributos(BaseEstimator, TransformerMixin):

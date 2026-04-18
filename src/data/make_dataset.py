@@ -37,5 +37,5 @@ def fetch_housing_data(housing_url: str, housing_path: str):
 
 if __name__ == "__main__":
     URL = "https://github.com/ageron/data/raw/main/housing.tgz"
-    PATH = r"C:\Users\estef\OneDrive\Escritorio\Productivo\Clases\Maestria\Maestria-CienciaDeDatos\ds-ml-project-template\data\raw"
+    PATH = r"C:\Users\Tefo\Desktop\Productivo\Clases\ds-ml-project-template\data\raw"
     fetch_housing_data(URL, PATH)
