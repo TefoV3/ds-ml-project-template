@@ -1,16 +1,34 @@
 """
-API Básica usando FastAPI para servir el modelo entrenado.
+API Básica usando FastAPI para servir el modelo entrenado de California Housing.
 """
 
+from contextlib import asynccontextmanager # <-- 1. Importamos la nueva herramienta
 from fastapi import FastAPI
 from pydantic import BaseModel
 import joblib
 import pandas as pd
+import numpy as np
+from sklearn.base import BaseEstimator, TransformerMixin
 
-# Inicializamos la app
-app = FastAPI(title="API de Predicción de Precios de Vivienda (California)", version="1.0")
+# --- Definición de la clase personalizada (IDÉNTICA AL NOTEBOOK) ---
+rooms_ix, bedrooms_ix, population_ix, households_ix = 3, 4, 5, 6
 
-# INSTRUCCIONES: Define el esquema de datos esperado por la API (Las variables X que usa tu modelo)
+class CreadorAtributos(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+    
+    def transform(self, X):
+        # Aseguramos que X sea un array de numpy
+        if isinstance(X, pd.DataFrame):
+            X = X.values
+            
+        rooms_per_household = X[:, rooms_ix] / X[:, households_ix]
+        population_per_household = X[:, population_ix] / X[:, households_ix]
+        bedrooms_per_room = X[:, bedrooms_ix] / X[:, rooms_ix]
+        
+        return np.c_[X, rooms_per_household, population_per_household, bedrooms_per_room]
+
+# --- Definición del Esquema de Datos ---
 class HousingFeatures(BaseModel):
     longitude: float
     latitude: float
@@ -20,46 +38,60 @@ class HousingFeatures(BaseModel):
     population: float
     households: float
     median_income: float
-    # Añade cualquier variable categórica o enriquecida que el modelo requiera
-    # ej: ocean_proximity: str 
-    # ej: rooms_per_household: float
+    ocean_proximity: str
 
-# Variable global para cargar el modelo
-# IMPORTANTE: Asegúrate de guardar tu modelo en "models/best_model.pkl" o ajusta la ruta
+# Variable global para el modelo
 model = None
 
-@app.on_event("startup")
-def load_model():
-    """
-    Carga el modelo globalmente al iniciar el servidor usando joblib.
-    """
+# --- 2. EL NUEVO MÉTODO LIFESPAN ---
+# Esto reemplaza al viejo @app.on_event("startup")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- Lo que pasa al ENCENDER el servidor ---
     global model
     try:
-        model = joblib.load("models/best_model.pkl")
+        import sys
+        setattr(sys.modules["__main__"], "CreadorAtributos", CreadorAtributos)
+        model = joblib.load("models/modelo_california.joblib")
+        print("✅ Modelo cargado exitosamente en la memoria.")
     except Exception as e:
-        print("Advertencia: No se pudo cargar el modelo. ¿Ya lo entrenaste y guardaste?")
+        print(f"❌ Error crítico: No se pudo cargar el modelo. Detalle: {e}")
+    
+    yield # Aquí la API se queda "pausada" recibiendo peticiones
+    
+    # --- Lo que pasa al APAGAR el servidor ---
+    model = None
+    print("🧹 Modelo descargado de la memoria.")
+
+# --- 3. INICIALIZAR LA APP CON EL LIFESPAN ---
+app = FastAPI(
+    title="API de Predicción de Precios de Vivienda (California)", 
+    description="API para estimar el valor medio de viviendas en distritos de California.",
+    version="1.0",
+    lifespan=lifespan # <-- Conectamos la función aquí
+)
 
 @app.get("/")
 def home():
-    return {"mensaje": "Bienvenido a la API del Proyecto Final de Ciencia de Datos"}
+    return {
+        "mensaje": "Bienvenido a la API del Proyecto Final de Ciencia de Datos",
+        "docs": "Ve a la ruta /docs para probar la API"
+    }
 
 @app.post("/predict")
 def predict_price(features: HousingFeatures):
-    """
-    INSTRUCCIONES:
-    1. Convierte el objeto 'features' (Pydantic) a un formato que Scikit-Learn entienda (ej un DataFrame o Array 2D).
-       Toma en cuenta que el modelo en producción espera exactamente las mismas columnas que usaste para entrenar.
-    2. Usa model.predict()
-    3. Retorna la predicción en un diccionario, ej: {"predicted_price": 250000.0}
-    """
     if model is None:
-        return {"error": "El modelo no se ha cargado."}
+        return {"error": "El modelo no está disponible en el servidor."}
     
-    # Tu código aquí para predecir
-    prediction = 0.0 # Reemplazar con model.predict()
-    
-    return {"predicted_price": prediction}
-
-# Instrucciones para correr la API localmente:
-# En la terminal, ejecuta:
-# uvicorn src.api.main:app --reload
+    try:
+        data_df = pd.DataFrame([features.model_dump()]) # model_dump() es la forma moderna de dict()
+        prediction = model.predict(data_df)
+        
+        return {
+            "predicted_price_usd": round(float(prediction[0]), 2),
+            "currency": "USD",
+            "status": "success"
+        }
+        
+    except Exception as e:
+        return {"error": f"Ocurrió un error durante la predicción: {str(e)}"}
